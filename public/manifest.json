@@ -1,0 +1,21 @@
+{
+  "name": "CryoKeep 冻存盒管理",
+  "short_name": "CryoKeep",
+  "description": "实验室冻存盒样品管理工具",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5F5F7",
+  "theme_color": "#0071E3",
+  "icons": [
+    {
+      "src": "https://picsum.photos/seed/cryokeep/192/192",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://picsum.photos/seed/cryokeep/512/512",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
