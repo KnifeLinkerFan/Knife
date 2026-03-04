@@ -1,5 +1,5 @@
 {
-  "name": "CryoKeep - 实验室冻存盒管理",
-  "description": "专为生物科学研究设计的冻存盒样品管理工具，支持自定义规格、样品详细备注及多盒管理。",
+  "name": "WB Lane Annotator",
+  "description": "Professional tool for annotating Western Blot lane samples with 45° tilted labels, AI-powered color grouping, and PPTX export.",
   "requestFramePermissions": []
 }
