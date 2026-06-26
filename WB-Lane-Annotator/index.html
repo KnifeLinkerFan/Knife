@@ -1,0 +1,1871 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WB Lane Annotator</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #1d232a;
+      --muted: #69747f;
+      --line: #d9e0e7;
+      --accent: #0f766e;
+      --accent-ink: #ffffff;
+      --danger: #b42318;
+      --soft: #edf5f4;
+      --shadow: 0 10px 28px rgba(32, 45, 58, 0.10);
+      --radius: 8px;
+      --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, "Noto Sans", sans-serif;
+      --font-serif: Georgia, "Times New Roman", "Noto Serif", serif;
+      --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    [hidden] { display: none !important; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--font-sans);
+      letter-spacing: 0;
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      border-radius: 6px;
+      min-height: 34px;
+      padding: 0 12px;
+      cursor: pointer;
+    }
+
+    button:hover { border-color: #98a7b5; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+    button.danger { color: var(--danger); border-color: #f2b8b5; background: #fff8f7; }
+    button.ghost { background: transparent; }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      min-height: 34px;
+      padding: 6px 9px;
+      color: var(--ink);
+      background: #fff;
+    }
+
+    input[type="color"] {
+      min-height: 34px;
+      padding: 3px;
+    }
+
+    input[type="range"] {
+      padding: 0;
+      accent-color: var(--accent);
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: rgba(246, 247, 249, 0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .topbar-inner {
+      max-width: 1680px;
+      margin: 0 auto;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .maker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #9a3412;
+      font-weight: 800;
+      font-size: 14px;
+      line-height: 1.2;
+    }
+
+    .maker::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      background: #ea580c;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    h1 {
+      margin: 2px 0 0;
+      font-size: 22px;
+      line-height: 1.2;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .language-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .language-toggle button {
+      border: 0;
+      border-radius: 0;
+      min-width: 62px;
+    }
+
+    .language-toggle button.active {
+      background: #263238;
+      color: #fff;
+    }
+
+    .app {
+      max-width: 1680px;
+      margin: 0 auto;
+      padding: 20px;
+      display: grid;
+      grid-template-columns: minmax(360px, 460px) minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .preview-shell {
+      position: sticky;
+      top: 88px;
+      align-self: start;
+      min-width: 0;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .panel-title {
+      font-weight: 800;
+      font-size: 15px;
+    }
+
+    .panel-body {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .row.three {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #3b4651;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .value {
+      color: var(--muted);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .check-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .check-field {
+      width: auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 7px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #3b4651;
+      cursor: pointer;
+    }
+
+    .check-field input {
+      width: 16px;
+      min-height: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+      padding: 0;
+    }
+
+    .lane-card, .marker-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 10px;
+      display: grid;
+      gap: 10px;
+      background: #fbfcfd;
+    }
+
+    .card-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .mini-title {
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .preview-panel {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .preview-header {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .preview-meta {
+      color: var(--muted);
+      font-size: 12px;
+      text-align: right;
+    }
+
+    .preview-area {
+      position: relative;
+      min-height: 520px;
+      background: #fff;
+      overflow: auto;
+      padding: 16px;
+    }
+
+    .preview-placeholder {
+      min-height: 460px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      color: var(--muted);
+      border: 1px dashed #b8c3cc;
+      border-radius: 8px;
+      background: #fff;
+      padding: 24px;
+    }
+
+    .scaled-wrap {
+      position: relative;
+      width: 100%;
+      min-height: 1px;
+      background: #fff;
+    }
+
+    .stage {
+      position: relative;
+      transform-origin: top left;
+      background: #fff;
+    }
+
+    .wb-image {
+      position: absolute;
+      left: 0;
+      top: 150px;
+      display: block;
+      user-select: none;
+      pointer-events: none;
+      max-width: none;
+    }
+
+    .label-text {
+      position: absolute;
+      z-index: 5;
+      white-space: nowrap;
+      font-weight: 700;
+      text-shadow: 0 1px 2px rgba(255,255,255,0.9);
+      line-height: 1;
+      cursor: default;
+    }
+
+    .lane-label {
+      transform-origin: bottom center;
+      text-align: center;
+    }
+
+    .marker-label {
+      transform: translate(-100%, -50%);
+      text-align: right;
+    }
+
+    .status {
+      border-radius: 7px;
+      padding: 9px 10px;
+      font-size: 12px;
+      line-height: 1.45;
+      background: var(--soft);
+      color: #134e4a;
+      display: none;
+    }
+
+    .status.show { display: block; }
+    .status.error { background: #fff1f0; color: #9f1d16; }
+
+    .divider {
+      height: 1px;
+      background: var(--line);
+      margin: 2px 0;
+    }
+
+    @media (max-width: 980px) {
+      .app {
+        grid-template-columns: 1fr;
+        padding: 14px;
+      }
+
+      .preview-shell {
+        position: static;
+      }
+
+      .preview-area {
+        min-height: 420px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .topbar-inner {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .top-actions {
+        justify-content: flex-start;
+      }
+
+      .row, .row.three {
+        grid-template-columns: 1fr;
+      }
+
+      .preview-area {
+        padding: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div>
+        <div class="maker">KnifeLinker 制作</div>
+        <h1 data-i18n="appTitle">WB 条带标注工具</h1>
+      </div>
+      <div class="top-actions">
+        <div class="language-toggle" aria-label="Language">
+          <button id="langZh" class="active" type="button">中文</button>
+          <button id="langEn" type="button">EN</button>
+        </div>
+        <button id="exportHtmlBtn" type="button" class="primary" data-i18n="exportHtml">导出 HTML</button>
+        <button id="exportPptxBtn" type="button" class="primary" data-i18n="exportPptx">导出 PPTX</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="app">
+    <section class="controls" aria-label="Controls">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title" data-i18n="imagePanel">原始图片</div>
+        </div>
+        <div class="panel-body">
+          <div class="field">
+            <label for="imageInput" data-i18n="imageInput">导入 WB 图片</label>
+            <input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp,image/bmp,image/gif,.png,.jpg,.jpeg,.webp,.bmp,.gif,.tif,.tiff">
+            <div class="hint" data-i18n="imageHint">预览与导出只叠加标注，不重采样、不裁剪、不改变原图尺寸与比例。</div>
+          </div>
+          <div class="status show" id="imageStatus" data-i18n="noImage">尚未导入图片。</div>
+          <div class="divider"></div>
+          <div class="mini-title" data-i18n="cropPanel">图片剪裁</div>
+          <div class="row">
+            <div class="field">
+              <label for="cropLeft"><span data-i18n="cropLeft">左侧剪裁</span><span class="value" id="cropLeftVal"></span></label>
+              <input id="cropLeft" type="range" min="0" max="90" step="0.1" value="0">
+            </div>
+            <div class="field">
+              <label for="cropRight"><span data-i18n="cropRight">右侧剪裁</span><span class="value" id="cropRightVal"></span></label>
+              <input id="cropRight" type="range" min="0" max="90" step="0.1" value="0">
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label for="cropTop"><span data-i18n="cropTop">顶部剪裁</span><span class="value" id="cropTopVal"></span></label>
+              <input id="cropTop" type="range" min="0" max="90" step="0.1" value="0">
+            </div>
+            <div class="field">
+              <label for="cropBottom"><span data-i18n="cropBottom">底部剪裁</span><span class="value" id="cropBottomVal"></span></label>
+              <input id="cropBottom" type="range" min="0" max="90" step="0.1" value="0">
+            </div>
+          </div>
+          <div class="button-row">
+            <button id="resetCropBtn" type="button" data-i18n="resetCrop">重置剪裁</button>
+          </div>
+          <div class="hint" data-i18n="cropHint">剪裁不会覆盖原图；导出的 HTML/PPTX 会使用当前剪裁后的图像。</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title" data-i18n="lanePanel">泳道标注</div>
+        </div>
+        <div class="panel-body">
+          <div class="row">
+            <div class="field">
+              <label for="laneCount" data-i18n="laneCount">泳道数量</label>
+              <input id="laneCount" type="number" min="1" max="80" value="8">
+            </div>
+            <div class="field">
+              <label>&nbsp;</label>
+              <button id="generateLanesBtn" type="button" class="primary" data-i18n="generateLanes">生成泳道</button>
+            </div>
+          </div>
+          <div class="button-row">
+            <button id="addLaneBtn" type="button" data-i18n="addLane">添加泳道</button>
+            <button id="aiGroupBtn" type="button" data-i18n="aiGroup">AI 智能分组</button>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label for="openaiKey" data-i18n="apiKey">OpenAI API Key（可选）</label>
+              <input id="openaiKey" type="password" autocomplete="off" placeholder="sk-...">
+            </div>
+            <div class="field">
+              <label for="openaiModel" data-i18n="modelName">模型</label>
+              <input id="openaiModel" value="gpt-4.1-mini">
+            </div>
+          </div>
+          <div id="aiStatus" class="status"></div>
+
+          <div class="divider"></div>
+
+          <div class="row">
+            <div class="field">
+              <label for="startPct"><span data-i18n="startPct">起始对齐</span><span class="value" id="startPctVal"></span></label>
+              <input id="startPct" type="range" min="0" max="100" value="12">
+            </div>
+            <div class="field">
+              <label for="endPct"><span data-i18n="endPct">结束对齐</span><span class="value" id="endPctVal"></span></label>
+              <input id="endPct" type="range" min="0" max="100" value="88">
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="field">
+              <label for="globalY"><span data-i18n="globalY">全局垂直偏移</span><span class="value" id="globalYVal"></span></label>
+              <input id="globalY" type="range" min="-145" max="260" value="-12">
+            </div>
+            <div class="field">
+              <label for="angle"><span data-i18n="angle">倾斜角度</span><span class="value" id="angleVal"></span></label>
+              <input id="angle" type="range" min="0" max="90" value="45">
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="mini-title" data-i18n="laneTypography">样品名称排版</div>
+          <div class="row">
+            <div class="field">
+              <label for="laneFontSize"><span data-i18n="laneFontSize">样品名称字号</span><span class="value" id="laneFontSizeVal"></span></label>
+              <input id="laneFontSize" type="range" min="6" max="96" value="16">
+            </div>
+            <div class="field">
+              <label for="laneFontFamily" data-i18n="laneFontFamily">样品名称字体</label>
+              <select id="laneFontFamily">
+                <option value="sans" data-i18n="sans">无衬线现代</option>
+                <option value="serif" data-i18n="serif">衬线经典</option>
+                <option value="times">Times New Roman</option>
+                <option value="mono" data-i18n="mono">等宽技术</option>
+              </select>
+            </div>
+          </div>
+          <div class="check-row">
+            <label class="check-field"><input id="laneBold" type="checkbox" checked><span data-i18n="bold">粗体</span></label>
+            <label class="check-field"><input id="laneItalic" type="checkbox"><span data-i18n="italic">斜体</span></label>
+          </div>
+
+          <div id="lanesList"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title" data-i18n="markerPanel">Marker 标注</div>
+          <button id="addMarkerBtn" type="button" data-i18n="addMarker">添加 Marker</button>
+        </div>
+        <div class="panel-body">
+          <div class="field">
+            <label for="markerX"><span data-i18n="markerX">Marker 水平位置</span><span class="value" id="markerXVal"></span></label>
+            <input id="markerX" type="range" min="-25" max="30" value="-3">
+          </div>
+          <div class="divider"></div>
+          <div class="mini-title" data-i18n="markerTypography">Marker 排版</div>
+          <div class="row">
+            <div class="field">
+              <label for="markerFontSize"><span data-i18n="markerFontSize">Marker 字号</span><span class="value" id="markerFontSizeVal"></span></label>
+              <input id="markerFontSize" type="range" min="6" max="96" value="15">
+            </div>
+            <div class="field">
+              <label for="markerFontFamily" data-i18n="markerFontFamily">Marker 字体</label>
+              <select id="markerFontFamily">
+                <option value="sans" data-i18n="sans">无衬线现代</option>
+                <option value="serif" data-i18n="serif">衬线经典</option>
+                <option value="times">Times New Roman</option>
+                <option value="mono" data-i18n="mono">等宽技术</option>
+              </select>
+            </div>
+          </div>
+          <div class="check-row">
+            <label class="check-field"><input id="markerBold" type="checkbox" checked><span data-i18n="bold">粗体</span></label>
+            <label class="check-field"><input id="markerItalic" type="checkbox"><span data-i18n="italic">斜体</span></label>
+          </div>
+          <div id="markersList"></div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="preview-shell">
+      <div class="preview-panel">
+        <div class="preview-header">
+          <div class="panel-title" data-i18n="previewTitle">实时预览</div>
+          <div id="previewMeta" class="preview-meta"></div>
+        </div>
+        <div class="preview-area" id="previewArea">
+          <div id="placeholder" class="preview-placeholder" data-i18n="placeholder">导入图片后开始标注。预览区域背景保持纯白，不显示网格线。</div>
+          <div id="scaledWrap" class="scaled-wrap" hidden>
+            <div id="stage" class="stage"></div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const TOP_PAD = 150;
+    const LEFT_GUTTER = 180;
+    const state = {
+      lang: "zh",
+      originalDataUrl: "",
+      originalType: "",
+      originalWidth: 0,
+      originalHeight: 0,
+      imageDataUrl: "",
+      imageType: "",
+      imageName: "",
+      naturalWidth: 0,
+      naturalHeight: 0,
+      cropLeft: 0,
+      cropRight: 0,
+      cropTop: 0,
+      cropBottom: 0,
+      lanes: [],
+      markers: [],
+      startPct: 12,
+      endPct: 88,
+      globalY: -12,
+      angle: 45,
+      laneFontSize: 16,
+      laneFontFamily: "sans",
+      laneBold: true,
+      laneItalic: false,
+      markerFontSize: 15,
+      markerFontFamily: "sans",
+      markerBold: true,
+      markerItalic: false,
+      markerX: -3
+    };
+
+    const palettes = [
+      "#005f73", "#ae2012", "#6a4c93", "#2d6a4f", "#ca6702", "#1d4ed8",
+      "#9d174d", "#386641", "#7c2d12", "#334155", "#0e7490", "#7f1d1d"
+    ];
+
+    const i18n = {
+      zh: {
+        appTitle: "WB 条带标注工具",
+        exportHtml: "导出 HTML",
+        exportPptx: "导出 PPTX",
+        imagePanel: "原始图片",
+        imageInput: "导入 WB 图片",
+        imageHint: "支持 PNG/JPG/WebP/BMP/GIF；基础未压缩 TIFF 会按原像素尺寸转换为预览图。预览与导出只叠加标注，不重采样、不裁剪。",
+        noImage: "尚未导入图片。",
+        imageLoaded: "已导入：{name}，原始尺寸 {w} x {h} px。",
+        imageLoadedCropped: "已导入：{name}，当前剪裁尺寸 {w} x {h} px；原始尺寸 {ow} x {oh} px。",
+        imageLoading: "正在读取图片...",
+        imageUnsupported: "当前浏览器无法直接读取此图片。请使用 PNG/JPG，或将压缩 TIFF 先另存为 PNG 后再导入。",
+        imageTiffUnsupported: "此 TIFF 使用了当前工具暂不支持的压缩或位深。请先另存为 PNG/JPG 后再导入。",
+        cropPanel: "图片剪裁",
+        cropLeft: "左侧剪裁",
+        cropRight: "右侧剪裁",
+        cropTop: "顶部剪裁",
+        cropBottom: "底部剪裁",
+        resetCrop: "重置剪裁",
+        cropHint: "剪裁不会覆盖原图；导出的 HTML/PPTX 会使用当前剪裁后的图像。",
+        lanePanel: "泳道标注",
+        laneCount: "泳道数量",
+        generateLanes: "生成泳道",
+        addLane: "添加泳道",
+        aiGroup: "AI 智能分组",
+        apiKey: "OpenAI API Key（可选）",
+        modelName: "模型",
+        startPct: "起始对齐",
+        endPct: "结束对齐",
+        globalY: "全局垂直偏移",
+        angle: "倾斜角度",
+        laneTypography: "样品名称排版",
+        laneFontSize: "样品名称字号",
+        laneFontFamily: "样品名称字体",
+        markerTypography: "Marker 排版",
+        markerFontSize: "Marker 字号",
+        markerFontFamily: "Marker 字体",
+        bold: "粗体",
+        italic: "斜体",
+        sans: "无衬线现代",
+        serif: "衬线经典",
+        mono: "等宽技术",
+        lane: "泳道",
+        sampleName: "样品名称",
+        color: "颜色",
+        laneX: "水平偏移",
+        laneY: "垂直偏移",
+        remove: "删除",
+        markerPanel: "Marker 标注",
+        addMarker: "添加 Marker",
+        markerX: "Marker 水平位置",
+        marker: "Marker",
+        markerSize: "条带大小",
+        markerY: "垂直位置",
+        previewTitle: "实时预览",
+        placeholder: "导入图片后开始标注。预览区域背景保持纯白，不显示网格线。",
+        noLanes: "请先生成或添加泳道。",
+        noPptxLib: "PPTX 导出模块没有加载成功。请联网后刷新页面，或先导出 HTML。",
+        htmlDone: "HTML 文件已生成。",
+        pptDone: "PPTX 文件已生成。",
+        aiWorking: "正在分析样品名称并分组...",
+        aiLocal: "未使用在线模型，已用本地规则完成分组着色。",
+        aiDone: "AI 分组着色已完成。",
+        aiFailed: "在线分组失败，已切换为本地规则分组。",
+        needImage: "请先导入 WB 图片。"
+      },
+      en: {
+        appTitle: "WB Lane Annotator",
+        exportHtml: "Export HTML",
+        exportPptx: "Export PPTX",
+        imagePanel: "Source Image",
+        imageInput: "Import WB image",
+        imageHint: "Supports PNG/JPG/WebP/BMP/GIF; basic uncompressed TIFF is converted at the same pixel size for preview. Annotations are overlaid without resampling or cropping.",
+        noImage: "No image imported yet.",
+        imageLoaded: "Imported: {name}, original size {w} x {h} px.",
+        imageLoadedCropped: "Imported: {name}, current cropped size {w} x {h} px; original size {ow} x {oh} px.",
+        imageLoading: "Reading image...",
+        imageUnsupported: "This image cannot be decoded by the browser. Please use PNG/JPG, or save compressed TIFF as PNG first.",
+        imageTiffUnsupported: "This TIFF compression or bit depth is not supported yet. Please save it as PNG/JPG first.",
+        cropPanel: "Image crop",
+        cropLeft: "Crop left",
+        cropRight: "Crop right",
+        cropTop: "Crop top",
+        cropBottom: "Crop bottom",
+        resetCrop: "Reset crop",
+        cropHint: "Cropping is non-destructive; exported HTML/PPTX uses the current cropped image.",
+        lanePanel: "Lane Labels",
+        laneCount: "Lane count",
+        generateLanes: "Generate lanes",
+        addLane: "Add lane",
+        aiGroup: "AI grouping",
+        apiKey: "OpenAI API Key (optional)",
+        modelName: "Model",
+        startPct: "Start align",
+        endPct: "End align",
+        globalY: "Global vertical offset",
+        angle: "Rotation",
+        laneTypography: "Sample name typography",
+        laneFontSize: "Sample font size",
+        laneFontFamily: "Sample font",
+        markerTypography: "Marker typography",
+        markerFontSize: "Marker font size",
+        markerFontFamily: "Marker font",
+        bold: "Bold",
+        italic: "Italic",
+        sans: "Modern sans",
+        serif: "Classic serif",
+        mono: "Technical mono",
+        lane: "Lane",
+        sampleName: "Sample name",
+        color: "Color",
+        laneX: "X offset",
+        laneY: "Y offset",
+        remove: "Remove",
+        markerPanel: "Marker Labels",
+        addMarker: "Add Marker",
+        markerX: "Marker X position",
+        marker: "Marker",
+        markerSize: "Band size",
+        markerY: "Y position",
+        previewTitle: "Live Preview",
+        placeholder: "Import an image to begin. The preview background stays pure white with no grid.",
+        noLanes: "Generate or add lanes first.",
+        noPptxLib: "The PPTX module did not load. Refresh with internet access, or export HTML first.",
+        htmlDone: "HTML file generated.",
+        pptDone: "PPTX file generated.",
+        aiWorking: "Analyzing sample names and assigning groups...",
+        aiLocal: "Online AI was not used. Local rule-based grouping is applied.",
+        aiDone: "AI grouping colors applied.",
+        aiFailed: "Online grouping failed. Local rule-based grouping is applied.",
+        needImage: "Import a WB image first."
+      }
+    };
+
+    const els = {};
+    [
+      "langZh", "langEn", "exportHtmlBtn", "exportPptxBtn", "imageInput", "imageStatus",
+      "cropLeft", "cropRight", "cropTop", "cropBottom", "resetCropBtn",
+      "laneCount", "generateLanesBtn", "addLaneBtn", "aiGroupBtn", "openaiKey", "openaiModel",
+      "aiStatus", "startPct", "endPct", "globalY", "angle", "laneFontSize", "laneFontFamily",
+      "laneBold", "laneItalic", "markerFontSize", "markerFontFamily", "markerBold", "markerItalic",
+      "lanesList", "addMarkerBtn", "markerX", "markersList", "previewArea", "previewMeta",
+      "placeholder", "scaledWrap", "stage", "startPctVal", "endPctVal", "globalYVal",
+      "laneFontSizeVal", "angleVal", "markerXVal", "markerFontSizeVal",
+      "cropLeftVal", "cropRightVal", "cropTopVal", "cropBottomVal"
+    ].forEach(id => els[id] = document.getElementById(id));
+
+    function t(key, vars = {}) {
+      let text = i18n[state.lang][key] || key;
+      Object.entries(vars).forEach(([k, v]) => text = text.replace(`{${k}}`, v));
+      return text;
+    }
+
+    function uid() {
+      return Math.random().toString(36).slice(2, 9);
+    }
+
+    function fontCss(family) {
+      if (family === "times") return "\"Times New Roman\", Times, serif";
+      if (family === "serif") return "var(--font-serif)";
+      if (family === "mono") return "var(--font-mono)";
+      return "var(--font-sans)";
+    }
+
+    function fontPptFace(family = state.laneFontFamily) {
+      if (family === "times") return "Times New Roman";
+      if (family === "serif") return "Times New Roman";
+      if (family === "mono") return "Consolas";
+      return "Arial";
+    }
+
+    function laneBaseX(index) {
+      if (state.lanes.length <= 1) return state.naturalWidth * state.startPct / 100;
+      const start = state.naturalWidth * state.startPct / 100;
+      const end = state.naturalWidth * state.endPct / 100;
+      return start + (end - start) * (index / (state.lanes.length - 1));
+    }
+
+    function lanePosition(lane, index) {
+      return {
+        x: laneBaseX(index) + lane.x,
+        y: TOP_PAD + state.globalY + lane.y
+      };
+    }
+
+    function markerPosition(marker) {
+      return {
+        x: state.naturalWidth * state.markerX / 100,
+        y: TOP_PAD + state.naturalHeight * marker.yPct / 100
+      };
+    }
+
+    function cropRect() {
+      const maxCropX = 95;
+      const maxCropY = 95;
+      const xTotal = state.cropLeft + state.cropRight;
+      const yTotal = state.cropTop + state.cropBottom;
+      const xScale = xTotal > maxCropX ? maxCropX / xTotal : 1;
+      const yScale = yTotal > maxCropY ? maxCropY / yTotal : 1;
+      const left = Math.round(state.originalWidth * state.cropLeft * xScale / 100);
+      const right = Math.round(state.originalWidth * state.cropRight * xScale / 100);
+      const top = Math.round(state.originalHeight * state.cropTop * yScale / 100);
+      const bottom = Math.round(state.originalHeight * state.cropBottom * yScale / 100);
+      const sx = Math.min(left, Math.max(0, state.originalWidth - 2));
+      const sy = Math.min(top, Math.max(0, state.originalHeight - 2));
+      const sw = Math.max(1, state.originalWidth - sx - right);
+      const sh = Math.max(1, state.originalHeight - sy - bottom);
+      return { sx, sy, sw, sh };
+    }
+
+    function isCropActive() {
+      return state.cropLeft || state.cropRight || state.cropTop || state.cropBottom;
+    }
+
+    async function applyCropToImage() {
+      if (!state.originalDataUrl) return;
+      if (!isCropActive()) {
+        state.imageDataUrl = state.originalDataUrl;
+        state.imageType = state.originalType;
+        state.naturalWidth = state.originalWidth;
+        state.naturalHeight = state.originalHeight;
+        return;
+      }
+      const { sx, sy, sw, sh } = cropRect();
+      const img = await loadImageElement(state.originalDataUrl);
+      const canvas = document.createElement("canvas");
+      canvas.width = sw;
+      canvas.height = sh;
+      const ctx = canvas.getContext("2d", { willReadFrequently: false });
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+      state.imageDataUrl = canvas.toDataURL("image/png");
+      state.imageType = "image/png";
+      state.naturalWidth = sw;
+      state.naturalHeight = sh;
+    }
+
+    function updateImageStatus() {
+      if (!state.imageDataUrl) {
+        setStatus(els.imageStatus, t("noImage"));
+        return;
+      }
+      if (isCropActive()) {
+        setStatus(els.imageStatus, t("imageLoadedCropped", {
+          name: state.imageName,
+          w: state.naturalWidth,
+          h: state.naturalHeight,
+          ow: state.originalWidth,
+          oh: state.originalHeight
+        }));
+      } else {
+        setStatus(els.imageStatus, t("imageLoaded", { name: state.imageName, w: state.naturalWidth, h: state.naturalHeight }));
+      }
+    }
+
+    function defaultLane(index) {
+      return {
+        id: uid(),
+        name: `Sample ${index + 1}`,
+        color: palettes[index % palettes.length],
+        x: 0,
+        y: 0
+      };
+    }
+
+    function defaultMarker(index) {
+      const defaults = ["250 kDa", "150 kDa", "100 kDa", "75 kDa", "50 kDa", "37 kDa", "25 kDa"];
+      return {
+        id: uid(),
+        size: defaults[index] || `${Math.max(10, 250 - index * 25)} kDa`,
+        yPct: Math.min(95, 12 + index * 12)
+      };
+    }
+
+    function setStatus(el, msg, isError = false) {
+      el.textContent = msg;
+      el.classList.add("show");
+      el.classList.toggle("error", isError);
+    }
+
+    function clearStatus(el) {
+      el.textContent = "";
+      el.classList.remove("show", "error");
+    }
+
+    function updateTexts() {
+      document.documentElement.lang = state.lang === "zh" ? "zh-CN" : "en";
+      document.querySelectorAll("[data-i18n]").forEach(node => {
+        const key = node.getAttribute("data-i18n");
+        if (i18n[state.lang][key]) node.textContent = i18n[state.lang][key];
+      });
+      els.langZh.classList.toggle("active", state.lang === "zh");
+      els.langEn.classList.toggle("active", state.lang === "en");
+      updateImageStatus();
+      renderControls();
+      renderPreview();
+    }
+
+    function syncFromInputs() {
+      state.startPct = Number(els.startPct.value);
+      state.endPct = Number(els.endPct.value);
+      state.globalY = Number(els.globalY.value);
+      state.angle = Number(els.angle.value);
+      state.laneFontSize = Number(els.laneFontSize.value);
+      state.laneFontFamily = els.laneFontFamily.value;
+      state.laneBold = els.laneBold.checked;
+      state.laneItalic = els.laneItalic.checked;
+      state.markerFontSize = Number(els.markerFontSize.value);
+      state.markerFontFamily = els.markerFontFamily.value;
+      state.markerBold = els.markerBold.checked;
+      state.markerItalic = els.markerItalic.checked;
+      state.markerX = Number(els.markerX.value);
+      state.cropLeft = Number(els.cropLeft.value);
+      state.cropRight = Number(els.cropRight.value);
+      state.cropTop = Number(els.cropTop.value);
+      state.cropBottom = Number(els.cropBottom.value);
+    }
+
+    function renderValueLabels() {
+      els.startPctVal.textContent = `${state.startPct}%`;
+      els.endPctVal.textContent = `${state.endPct}%`;
+      els.globalYVal.textContent = `${state.globalY}px`;
+      els.laneFontSizeVal.textContent = `${state.laneFontSize}px`;
+      els.angleVal.textContent = `${state.angle}°`;
+      els.markerXVal.textContent = `${state.markerX}%`;
+      els.markerFontSizeVal.textContent = `${state.markerFontSize}px`;
+      els.cropLeftVal.textContent = `${state.cropLeft.toFixed(1)}%`;
+      els.cropRightVal.textContent = `${state.cropRight.toFixed(1)}%`;
+      els.cropTopVal.textContent = `${state.cropTop.toFixed(1)}%`;
+      els.cropBottomVal.textContent = `${state.cropBottom.toFixed(1)}%`;
+    }
+
+    function renderControls() {
+      syncFromInputs();
+      renderValueLabels();
+      els.lanesList.innerHTML = "";
+      state.lanes.forEach((lane, index) => {
+        const card = document.createElement("div");
+        card.className = "lane-card";
+        card.innerHTML = `
+          <div class="card-title-row">
+            <div class="mini-title">${t("lane")} ${index + 1}</div>
+            <button type="button" class="danger" data-action="remove-lane" data-id="${lane.id}">${t("remove")}</button>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>${t("sampleName")}</label>
+              <input value="${escapeAttr(lane.name)}" data-action="lane-name" data-id="${lane.id}">
+            </div>
+            <div class="field">
+              <label>${t("color")}</label>
+              <input type="color" value="${lane.color}" data-action="lane-color" data-id="${lane.id}">
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>${t("laneX")} <span class="value">${lane.x}px</span></label>
+              <input type="range" min="-180" max="180" value="${lane.x}" data-action="lane-x" data-id="${lane.id}">
+            </div>
+            <div class="field">
+              <label>${t("laneY")} <span class="value">${lane.y}px</span></label>
+              <input type="range" min="-180" max="220" value="${lane.y}" data-action="lane-y" data-id="${lane.id}">
+            </div>
+          </div>
+        `;
+        els.lanesList.appendChild(card);
+      });
+
+      els.markersList.innerHTML = "";
+      state.markers.forEach((marker, index) => {
+        const card = document.createElement("div");
+        card.className = "marker-card";
+        card.innerHTML = `
+          <div class="card-title-row">
+            <div class="mini-title">${t("marker")} ${index + 1}</div>
+            <button type="button" class="danger" data-action="remove-marker" data-id="${marker.id}">${t("remove")}</button>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>${t("markerSize")}</label>
+              <input value="${escapeAttr(marker.size)}" data-action="marker-size" data-id="${marker.id}">
+            </div>
+            <div class="field">
+              <label>${t("markerY")} <span class="value">${marker.yPct}%</span></label>
+              <input type="range" min="0" max="100" value="${marker.yPct}" data-action="marker-y" data-id="${marker.id}">
+            </div>
+          </div>
+        `;
+        els.markersList.appendChild(card);
+      });
+    }
+
+    function renderPreview() {
+      syncFromInputs();
+      renderValueLabels();
+      if (!state.imageDataUrl) {
+        els.placeholder.hidden = false;
+        els.scaledWrap.hidden = true;
+        els.previewMeta.textContent = "";
+        return;
+      }
+
+      els.placeholder.hidden = true;
+      els.scaledWrap.hidden = false;
+      const totalHeight = TOP_PAD + state.naturalHeight;
+      const totalWidth = LEFT_GUTTER + state.naturalWidth;
+      const available = Math.max(260, els.previewArea.clientWidth - 34);
+      const scale = Math.min(1, available / Math.max(1, totalWidth));
+      els.scaledWrap.style.height = `${Math.ceil(totalHeight * scale)}px`;
+      els.stage.style.width = `${totalWidth}px`;
+      els.stage.style.height = `${totalHeight}px`;
+      els.stage.style.transform = `scale(${scale})`;
+      els.stage.innerHTML = "";
+
+      const img = document.createElement("img");
+      img.className = "wb-image";
+      img.src = state.imageDataUrl;
+      img.width = state.naturalWidth;
+      img.height = state.naturalHeight;
+      img.alt = "WB";
+      img.style.left = `${LEFT_GUTTER}px`;
+      els.stage.appendChild(img);
+
+      state.lanes.forEach((lane, index) => {
+        const pos = lanePosition(lane, index);
+        const label = document.createElement("div");
+        label.className = "label-text lane-label";
+        label.textContent = lane.name || `${t("lane")} ${index + 1}`;
+        label.style.left = `${LEFT_GUTTER + pos.x}px`;
+        label.style.top = `${pos.y}px`;
+        label.style.color = lane.color;
+        label.style.fontSize = `${state.laneFontSize}px`;
+        label.style.fontFamily = fontCss(state.laneFontFamily);
+        label.style.fontWeight = state.laneBold ? "700" : "400";
+        label.style.fontStyle = state.laneItalic ? "italic" : "normal";
+        label.style.transform = `translate(-50%, -100%) rotate(-${state.angle}deg)`;
+        els.stage.appendChild(label);
+      });
+
+      state.markers.forEach(marker => {
+        const pos = markerPosition(marker);
+        const label = document.createElement("div");
+        label.className = "label-text marker-label";
+        label.textContent = marker.size;
+        label.style.left = `${LEFT_GUTTER + pos.x}px`;
+        label.style.top = `${pos.y}px`;
+        label.style.color = "#111827";
+        label.style.fontSize = `${state.markerFontSize}px`;
+        label.style.fontFamily = fontCss(state.markerFontFamily);
+        label.style.fontWeight = state.markerBold ? "700" : "400";
+        label.style.fontStyle = state.markerItalic ? "italic" : "normal";
+        els.stage.appendChild(label);
+      });
+
+      els.previewMeta.textContent = `${state.naturalWidth} x ${state.naturalHeight} px`;
+    }
+
+    function escapeAttr(value) {
+      return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function safeFileBase() {
+      return (state.imageName || "WB-lane-annotated").replace(/\.[^.]+$/, "").replace(/[^\w\u4e00-\u9fa5-]+/g, "_");
+    }
+
+    function generateLanes(count) {
+      state.lanes = Array.from({ length: count }, (_, index) => defaultLane(index));
+      renderControls();
+      renderPreview();
+    }
+
+    function localGroupLanes() {
+      const map = new Map();
+      state.lanes.forEach(lane => {
+        const key = sampleGroupKey(lane.name);
+        if (!map.has(key)) map.set(key, palettes[map.size % palettes.length]);
+        lane.color = map.get(key);
+      });
+    }
+
+    function sampleGroupKey(name) {
+      const raw = String(name || "").toLowerCase();
+      const tokens = raw
+        .replace(/[()[\]{}+/_.,;:|]/g, " ")
+        .split(/\s+/)
+        .filter(Boolean)
+        .filter(token => !/^\d+$/.test(token))
+        .filter(token => !["rep", "replicate", "lane", "sample", "mock", "treated"].includes(token));
+      const priority = tokens.find(token => /^(col|wt|ko|oe|mut|ctrl|control|exp|et|dex|ie|emf|flag|ha|myc|gapdh|actin|tubulin)/.test(token));
+      return priority || tokens[0] || raw || "default";
+    }
+
+    async function aiGroupLanes() {
+      if (!state.lanes.length) {
+        setStatus(els.aiStatus, t("noLanes"), true);
+        return;
+      }
+      setStatus(els.aiStatus, t("aiWorking"));
+      const key = els.openaiKey.value.trim();
+      if (!key) {
+        localGroupLanes();
+        renderControls();
+        renderPreview();
+        setStatus(els.aiStatus, t("aiLocal"));
+        return;
+      }
+      try {
+        const grouped = await callOpenAIGrouping(key);
+        if (!Array.isArray(grouped) || grouped.length !== state.lanes.length) throw new Error("Invalid grouping result");
+        grouped.forEach((item, index) => {
+          if (/^#[0-9a-f]{6}$/i.test(item.color || "")) state.lanes[index].color = item.color;
+        });
+        renderControls();
+        renderPreview();
+        setStatus(els.aiStatus, t("aiDone"));
+      } catch (err) {
+        localGroupLanes();
+        renderControls();
+        renderPreview();
+        setStatus(els.aiStatus, t("aiFailed"), true);
+      }
+    }
+
+    async function callOpenAIGrouping(apiKey) {
+      const model = els.openaiModel.value.trim() || "gpt-4.1-mini";
+      const samples = state.lanes.map((lane, index) => ({ index, name: lane.name }));
+      const prompt = [
+        "Group Western Blot sample labels by shared biological meaning such as same protein, treatment, genotype, control versus experimental group.",
+        "Return strict JSON only: {\"lanes\":[{\"index\":0,\"group\":\"...\",\"color\":\"#RRGGBB\"}]}",
+        "Use high-contrast professional scientific colors. Same group must share the exact same color.",
+        JSON.stringify(samples)
+      ].join("\n");
+
+      const res = await fetch("https://api.openai.com/v1/responses", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model,
+          input: prompt,
+          text: {
+            format: {
+              type: "json_schema",
+              name: "wb_lane_groups",
+              strict: true,
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  lanes: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      additionalProperties: false,
+                      properties: {
+                        index: { type: "number" },
+                        group: { type: "string" },
+                        color: { type: "string" }
+                      },
+                      required: ["index", "group", "color"]
+                    }
+                  }
+                },
+                required: ["lanes"]
+              }
+            }
+          }
+        })
+      });
+      if (!res.ok) throw new Error(`OpenAI error ${res.status}`);
+      const data = await res.json();
+      const text = data.output_text || data.output?.flatMap(o => o.content || []).map(c => c.text || "").join("") || "";
+      const parsed = JSON.parse(text);
+      return parsed.lanes.sort((a, b) => a.index - b.index);
+    }
+
+    function exportHtml() {
+      if (!state.imageDataUrl) {
+        alert(t("needImage"));
+        return;
+      }
+      const totalHeight = TOP_PAD + state.naturalHeight;
+      const totalWidth = LEFT_GUTTER + state.naturalWidth;
+      const laneNodes = state.lanes.map((lane, index) => {
+        const pos = lanePosition(lane, index);
+        return `<div contenteditable="true" class="label lane-label" style="left:${LEFT_GUTTER + pos.x}px;top:${pos.y}px;color:${lane.color};font-size:${state.laneFontSize}px;font-family:${htmlFontFamily(state.laneFontFamily)};font-weight:${state.laneBold ? 700 : 400};font-style:${state.laneItalic ? "italic" : "normal"};transform:translate(-50%,-100%) rotate(-${state.angle}deg);">${escapeHtml(lane.name)}</div>`;
+      }).join("\n      ");
+      const markerNodes = state.markers.map(marker => {
+        const pos = markerPosition(marker);
+        return `<div contenteditable="true" class="label marker-label" style="left:${LEFT_GUTTER + pos.x}px;top:${pos.y}px;font-size:${state.markerFontSize}px;font-family:${htmlFontFamily(state.markerFontFamily)};font-weight:${state.markerBold ? 700 : 400};font-style:${state.markerItalic ? "italic" : "normal"};">${escapeHtml(marker.size)}</div>`;
+      }).join("\n      ");
+      const html = `<!doctype html>
+<html lang="${state.lang === "zh" ? "zh-CN" : "en"}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(safeFileBase())} annotated WB</title>
+  <style>
+    body{margin:0;background:#fff;color:#111827;font-family:Arial,sans-serif;}
+    .page{min-height:100vh;padding:24px;display:grid;place-items:start center;background:#fff;}
+    .wrap{position:relative;width:100%;max-width:${totalWidth}px;height:${totalHeight}px;background:#fff;}
+    .stage{position:relative;width:${totalWidth}px;height:${totalHeight}px;transform-origin:top left;background:#fff;}
+    img{position:absolute;left:${LEFT_GUTTER}px;top:${TOP_PAD}px;width:${state.naturalWidth}px;height:${state.naturalHeight}px;max-width:none;}
+    .label{position:absolute;z-index:2;white-space:nowrap;line-height:1;text-shadow:0 1px 2px rgba(255,255,255,.9);outline:1px solid transparent;}
+    .label:focus{outline:1px solid #0f766e;background:rgba(255,255,255,.65);}
+    .lane-label{transform-origin:bottom center;text-align:center;}
+    .marker-label{transform:translate(-100%,-50%);text-align:right;color:#111827;}
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="wrap" id="wrap">
+      <div class="stage" id="stage">
+        <img src="${state.imageDataUrl}" alt="Western Blot">
+        ${laneNodes}
+        ${markerNodes}
+      </div>
+    </div>
+  </main>
+  <script>
+    const W=${totalWidth}, H=${totalHeight};
+    function fit(){
+      const wrap=document.getElementById("wrap"), stage=document.getElementById("stage");
+      const scale=Math.min(1, wrap.clientWidth/W);
+      stage.style.transform="scale("+scale+")";
+      wrap.style.height=Math.ceil(H*scale)+"px";
+    }
+    addEventListener("resize", fit);
+    fit();
+  <\/script>
+</body>
+</html>`;
+      downloadBlob(new Blob([html], { type: "text/html;charset=utf-8" }), `${safeFileBase()}-editable-WB.html`);
+      setStatus(els.aiStatus, t("htmlDone"));
+    }
+
+    function htmlFontFamily(family) {
+      if (family === "times") return "'Times New Roman',Times,serif";
+      if (family === "serif") return "Georgia,'Times New Roman',serif";
+      if (family === "mono") return "Consolas,'Liberation Mono',monospace";
+      return "Arial,'Noto Sans',sans-serif";
+    }
+
+    function xml(value) {
+      return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    function emu(inches) {
+      return Math.round(inches * 914400);
+    }
+
+    function pptColor(color) {
+      return String(color || "#111827").replace("#", "").toUpperCase();
+    }
+
+    function dataUrlBytes(dataUrl) {
+      const base64 = dataUrl.split(",")[1] || "";
+      const bin = atob(base64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes;
+    }
+
+    function textBytes(text) {
+      return new TextEncoder().encode(text);
+    }
+
+    const crcTable = (() => {
+      const table = new Uint32Array(256);
+      for (let i = 0; i < 256; i++) {
+        let c = i;
+        for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+        table[i] = c >>> 0;
+      }
+      return table;
+    })();
+
+    function crc32(bytes) {
+      let c = 0xffffffff;
+      for (let i = 0; i < bytes.length; i++) c = crcTable[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+      return (c ^ 0xffffffff) >>> 0;
+    }
+
+    function dosTimeDate(date = new Date()) {
+      const time = (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2);
+      const day = date.getDate();
+      const month = date.getMonth() + 1;
+      const year = Math.max(1980, date.getFullYear()) - 1980;
+      return { time, date: (year << 9) | (month << 5) | day };
+    }
+
+    function writeU16(arr, value) {
+      arr.push(value & 255, (value >>> 8) & 255);
+    }
+
+    function writeU32(arr, value) {
+      arr.push(value & 255, (value >>> 8) & 255, (value >>> 16) & 255, (value >>> 24) & 255);
+    }
+
+    function concatBytes(chunks) {
+      const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+      const out = new Uint8Array(total);
+      let offset = 0;
+      chunks.forEach(chunk => {
+        out.set(chunk, offset);
+        offset += chunk.length;
+      });
+      return out;
+    }
+
+    function makeZip(files) {
+      const localChunks = [];
+      const centralChunks = [];
+      let offset = 0;
+      const stamp = dosTimeDate();
+      files.forEach(file => {
+        const nameBytes = textBytes(file.name);
+        const data = file.bytes instanceof Uint8Array ? file.bytes : textBytes(file.bytes);
+        const crc = crc32(data);
+        const local = [];
+        writeU32(local, 0x04034b50);
+        writeU16(local, 20);
+        writeU16(local, 0x0800);
+        writeU16(local, 0);
+        writeU16(local, stamp.time);
+        writeU16(local, stamp.date);
+        writeU32(local, crc);
+        writeU32(local, data.length);
+        writeU32(local, data.length);
+        writeU16(local, nameBytes.length);
+        writeU16(local, 0);
+        const localHeader = new Uint8Array(local);
+        localChunks.push(localHeader, nameBytes, data);
+
+        const central = [];
+        writeU32(central, 0x02014b50);
+        writeU16(central, 20);
+        writeU16(central, 20);
+        writeU16(central, 0x0800);
+        writeU16(central, 0);
+        writeU16(central, stamp.time);
+        writeU16(central, stamp.date);
+        writeU32(central, crc);
+        writeU32(central, data.length);
+        writeU32(central, data.length);
+        writeU16(central, nameBytes.length);
+        writeU16(central, 0);
+        writeU16(central, 0);
+        writeU16(central, 0);
+        writeU16(central, 0);
+        writeU32(central, 0);
+        writeU32(central, offset);
+        centralChunks.push(new Uint8Array(central), nameBytes);
+        offset += localHeader.length + nameBytes.length + data.length;
+      });
+
+      const centralDir = concatBytes(centralChunks);
+      const end = [];
+      writeU32(end, 0x06054b50);
+      writeU16(end, 0);
+      writeU16(end, 0);
+      writeU16(end, files.length);
+      writeU16(end, files.length);
+      writeU32(end, centralDir.length);
+      writeU32(end, offset);
+      writeU16(end, 0);
+      return concatBytes([...localChunks, centralDir, new Uint8Array(end)]);
+    }
+
+    function pptTextShape(id, text, x, y, w, h, options) {
+      const rot = options.rotate ? ` rot="${Math.round(options.rotate * 60000)}"` : "";
+      const align = options.align || "ctr";
+      const fontSize = Math.round(options.fontSize * 100);
+      const color = pptColor(options.color);
+      const face = xml(options.fontFace || fontPptFace());
+      const bold = options.bold ? ' b="1"' : "";
+      const italic = options.italic ? ' i="1"' : "";
+      return `<p:sp>
+        <p:nvSpPr><p:cNvPr id="${id}" name="Text ${id}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>
+        <p:spPr><a:xfrm${rot}><a:off x="${emu(x)}" y="${emu(y)}"/><a:ext cx="${emu(w)}" cy="${emu(h)}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr>
+        <p:txBody><a:bodyPr wrap="none" rtlCol="0"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn="${align}"/><a:r><a:rPr lang="en-US" sz="${fontSize}"${bold}${italic}><a:solidFill><a:srgbClr val="${color}"/></a:solidFill><a:latin typeface="${face}"/><a:ea typeface="${face}"/><a:cs typeface="${face}"/></a:rPr><a:t>${xml(text)}</a:t></a:r><a:endParaRPr lang="en-US" sz="${fontSize}"/></a:p></p:txBody>
+      </p:sp>`;
+    }
+
+    function buildPptxBlob() {
+      const slideW = 13.333;
+      const slideH = 7.5;
+      const maxW = 11.8;
+      const maxH = 6.6;
+      const stagePixelWidth = LEFT_GUTTER + state.naturalWidth;
+      const scaleIn = Math.min(maxW / stagePixelWidth, maxH / (state.naturalHeight + TOP_PAD));
+      const imageW = state.naturalWidth * scaleIn;
+      const imageH = state.naturalHeight * scaleIn;
+      const gutterW = LEFT_GUTTER * scaleIn;
+      const topPadIn = TOP_PAD * scaleIn;
+      const totalH = topPadIn + imageH;
+      const stageX = (slideW - stagePixelWidth * scaleIn) / 2;
+      const stageY = Math.max(0.15, (slideH - totalH) / 2);
+      const imageX = stageX + gutterW;
+      const imageY = stageY + topPadIn;
+      const isPng = state.imageType.includes("png");
+      const imgExt = isPng ? "png" : "jpg";
+      const imgContentType = isPng ? "image/png" : "image/jpeg";
+      const imgName = `image1.${imgExt}`;
+      let shapeId = 3;
+
+      const picXml = `<p:pic>
+        <p:nvPicPr><p:cNvPr id="2" name="${xml(state.imageName || "WB image")}"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>
+        <p:blipFill><a:blip r:embed="rId2"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>
+        <p:spPr><a:xfrm><a:off x="${emu(imageX)}" y="${emu(imageY)}"/><a:ext cx="${emu(imageW)}" cy="${emu(imageH)}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>
+      </p:pic>`;
+
+      const laneXml = state.lanes.map((lane, index) => {
+        const pos = lanePosition(lane, index);
+        const x = imageX + pos.x * scaleIn;
+        const y = stageY + pos.y * scaleIn;
+        return pptTextShape(shapeId++, lane.name || `${t("lane")} ${index + 1}`, x - 0.55, y - 0.20, 1.1, 0.24, {
+          fontFace: fontPptFace(state.laneFontFamily),
+          fontSize: Math.max(5, state.laneFontSize * 0.6),
+          color: lane.color,
+          rotate: -state.angle,
+          align: "ctr",
+          bold: state.laneBold,
+          italic: state.laneItalic
+        });
+      }).join("");
+
+      const markerXml = state.markers.map(marker => {
+        const pos = markerPosition(marker);
+        const x = imageX + pos.x * scaleIn;
+        const y = stageY + pos.y * scaleIn;
+        return pptTextShape(shapeId++, marker.size, x - 0.9, y - 0.11, 0.85, 0.22, {
+          fontFace: fontPptFace(state.markerFontFamily),
+          fontSize: Math.max(5, state.markerFontSize * 0.6),
+          color: "#111827",
+          align: "r",
+          bold: state.markerBold,
+          italic: state.markerItalic
+        });
+      }).join("");
+
+      const slideXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+  <p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill><a:effectLst/></p:bgPr></p:bg><p:spTree>
+    <p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
+    <p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>
+    ${picXml}${laneXml}${markerXml}
+  </p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>
+</p:sld>`;
+
+      const files = [
+        { name: "[Content_Types].xml", bytes: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Default Extension="${imgExt}" ContentType="${imgContentType}"/>
+  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+  <Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
+  <Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>
+  <Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>
+  <Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>
+  <Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>
+</Types>` },
+        { name: "_rels/.rels", bytes: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>` },
+        { name: "docProps/app.xml", bytes: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>WB Lane Annotator</Application><Company>KnifeLinker</Company><Slides>1</Slides></Properties>` },
+        { name: "docProps/core.xml", bytes: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${xml(safeFileBase())} annotated WB</dc:title><dc:creator>KnifeLinker</dc:creator><cp:lastModifiedBy>KnifeLinker</cp:lastModifiedBy><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString()}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${new Date().toISOString()}</dcterms:modified></cp:coreProperties>` },
+        { name: "ppt/presentation.xml", bytes: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst><p:sldIdLst><p:sldId id="256" r:id="rId2"/></p:sldIdLst><p:sldSz cx="12192000" cy="6858000" type="wide"/><p:notesSz cx="6858000" cy="9144000"/><p:defaultTextStyle><a:defPPr><a:defRPr lang="en-US"/></a:defPPr></p:defaultTextStyle></p:presentation>` },
+        { name: "ppt/_rels/presentation.xml.rels", bytes: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/></Relationships>` },
+        { name: "ppt/slides/slide1.xml", bytes: slideXml },
+        { name: "ppt/slides/_rels/slide1.xml.rels", bytes: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${imgName}"/></Relationships>` },
+        { name: "ppt/slideMasters/slideMaster1.xml", bytes: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sldMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr></p:spTree></p:cSld><p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/><p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/></p:sldLayoutIdLst><p:txStyles><p:titleStyle/><p:bodyStyle/><p:otherStyle/></p:txStyles></p:sldMaster>` },
+        { name: "ppt/slideMasters/_rels/slideMaster1.xml.rels", bytes: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="../theme/theme1.xml"/></Relationships>` },
+        { name: "ppt/slideLayouts/slideLayout1.xml", bytes: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sldLayout xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" type="blank" preserve="1"><p:cSld name="Blank"><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr></p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sldLayout>` },
+        { name: "ppt/slideLayouts/_rels/slideLayout1.xml.rels", bytes: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/></Relationships>` },
+        { name: "ppt/theme/theme1.xml", bytes: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="WB Lane Annotator"><a:themeElements><a:clrScheme name="Office"><a:dk1><a:srgbClr val="000000"/></a:dk1><a:lt1><a:srgbClr val="FFFFFF"/></a:lt1><a:dk2><a:srgbClr val="1F2937"/></a:dk2><a:lt2><a:srgbClr val="F6F7F9"/></a:lt2><a:accent1><a:srgbClr val="0F766E"/></a:accent1><a:accent2><a:srgbClr val="AE2012"/></a:accent2><a:accent3><a:srgbClr val="6A4C93"/></a:accent3><a:accent4><a:srgbClr val="2D6A4F"/></a:accent4><a:accent5><a:srgbClr val="CA6702"/></a:accent5><a:accent6><a:srgbClr val="1D4ED8"/></a:accent6><a:hlink><a:srgbClr val="0563C1"/></a:hlink><a:folHlink><a:srgbClr val="954F72"/></a:folHlink></a:clrScheme><a:fontScheme name="Office"><a:majorFont><a:latin typeface="${xml(fontPptFace(state.laneFontFamily))}"/><a:ea typeface="${xml(fontPptFace(state.laneFontFamily))}"/><a:cs typeface="${xml(fontPptFace(state.laneFontFamily))}"/></a:majorFont><a:minorFont><a:latin typeface="${xml(fontPptFace(state.markerFontFamily))}"/><a:ea typeface="${xml(fontPptFace(state.markerFontFamily))}"/><a:cs typeface="${xml(fontPptFace(state.markerFontFamily))}"/></a:minorFont></a:fontScheme><a:fmtScheme name="Office"><a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:fillStyleLst><a:lnStyleLst><a:ln w="6350"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln></a:lnStyleLst><a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle></a:effectStyleLst><a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:bgFillStyleLst></a:fmtScheme></a:themeElements></a:theme>` },
+        { name: `ppt/media/${imgName}`, bytes: dataUrlBytes(state.imageDataUrl) }
+      ];
+      return new Blob([makeZip(files)], { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
+    }
+
+    async function exportPptx() {
+      if (!state.imageDataUrl) {
+        alert(t("needImage"));
+        return;
+      }
+      const blob = buildPptxBlob();
+      downloadBlob(blob, `${safeFileBase()}-editable-WB.pptx`);
+      setStatus(els.aiStatus, t("pptDone"));
+    }
+
+    function bindEvents() {
+      els.langZh.addEventListener("click", () => { state.lang = "zh"; updateTexts(); });
+      els.langEn.addEventListener("click", () => { state.lang = "en"; updateTexts(); });
+      els.imageInput.addEventListener("change", handleImage);
+      els.generateLanesBtn.addEventListener("click", () => {
+        const count = Math.max(1, Math.min(80, Number(els.laneCount.value) || 1));
+        generateLanes(count);
+      });
+      els.addLaneBtn.addEventListener("click", () => {
+        state.lanes.push(defaultLane(state.lanes.length));
+        renderControls();
+        renderPreview();
+      });
+      els.aiGroupBtn.addEventListener("click", aiGroupLanes);
+      els.addMarkerBtn.addEventListener("click", () => {
+        state.markers.push(defaultMarker(state.markers.length));
+        renderControls();
+        renderPreview();
+      });
+      els.exportHtmlBtn.addEventListener("click", exportHtml);
+      els.exportPptxBtn.addEventListener("click", exportPptx);
+      els.resetCropBtn.addEventListener("click", async () => {
+        ["cropLeft", "cropRight", "cropTop", "cropBottom"].forEach(id => els[id].value = 0);
+        syncFromInputs();
+        await applyCropToImage();
+        updateImageStatus();
+        renderPreview();
+      });
+
+      ["cropLeft", "cropRight", "cropTop", "cropBottom"].forEach(id => {
+        els[id].addEventListener("input", async () => {
+          syncFromInputs();
+          renderValueLabels();
+          await applyCropToImage();
+          updateImageStatus();
+          renderPreview();
+        });
+        els[id].addEventListener("change", async () => {
+          syncFromInputs();
+          await applyCropToImage();
+          updateImageStatus();
+          renderPreview();
+        });
+      });
+
+      ["startPct", "endPct", "globalY", "angle", "laneFontSize", "laneFontFamily", "laneBold", "laneItalic", "markerX", "markerFontSize", "markerFontFamily", "markerBold", "markerItalic"].forEach(id => {
+        els[id].addEventListener("input", renderPreview);
+        els[id].addEventListener("change", renderPreview);
+      });
+
+      els.lanesList.addEventListener("input", e => {
+        const id = e.target.dataset.id;
+        const lane = state.lanes.find(item => item.id === id);
+        if (!lane) return;
+        if (e.target.dataset.action === "lane-name") lane.name = e.target.value;
+        if (e.target.dataset.action === "lane-color") lane.color = e.target.value;
+        if (e.target.dataset.action === "lane-x") lane.x = Number(e.target.value);
+        if (e.target.dataset.action === "lane-y") lane.y = Number(e.target.value);
+        renderPreview();
+      });
+      els.lanesList.addEventListener("click", e => {
+        if (e.target.dataset.action !== "remove-lane") return;
+        state.lanes = state.lanes.filter(item => item.id !== e.target.dataset.id);
+        renderControls();
+        renderPreview();
+      });
+
+      els.markersList.addEventListener("input", e => {
+        const id = e.target.dataset.id;
+        const marker = state.markers.find(item => item.id === id);
+        if (!marker) return;
+        if (e.target.dataset.action === "marker-size") marker.size = e.target.value;
+        if (e.target.dataset.action === "marker-y") marker.yPct = Number(e.target.value);
+        renderPreview();
+      });
+      els.markersList.addEventListener("click", e => {
+        if (e.target.dataset.action !== "remove-marker") return;
+        state.markers = state.markers.filter(item => item.id !== e.target.dataset.id);
+        renderControls();
+        renderPreview();
+      });
+      window.addEventListener("resize", renderPreview);
+    }
+
+    function fileExt(name) {
+      const match = String(name || "").toLowerCase().match(/\.([a-z0-9]+)$/);
+      return match ? match[1] : "";
+    }
+
+    function isTiffFile(file) {
+      const ext = fileExt(file.name);
+      return ext === "tif" || ext === "tiff" || file.type === "image/tiff";
+    }
+
+    function readAsDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error || new Error("FileReader failed"));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function loadImageElement(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error("Image decode failed"));
+        img.src = src;
+      });
+    }
+
+    function canvasDataUrlFromImage(img) {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext("2d", { willReadFrequently: false });
+      ctx.drawImage(img, 0, 0);
+      return canvas.toDataURL("image/png");
+    }
+
+    async function loadBrowserImage(file) {
+      const dataUrl = await readAsDataUrl(file);
+      const img = await loadImageElement(dataUrl);
+      const directPptSafe = file.type === "image/png" || file.type === "image/jpeg" || /\.(png|jpe?g)$/i.test(file.name);
+      return {
+        dataUrl: directPptSafe ? dataUrl : canvasDataUrlFromImage(img),
+        type: directPptSafe && (file.type === "image/jpeg" || /\.jpe?g$/i.test(file.name)) ? "image/jpeg" : "image/png",
+        width: img.naturalWidth,
+        height: img.naturalHeight
+      };
+    }
+
+    function tiffReader(view, little) {
+      return {
+        u16(offset) { return view.getUint16(offset, little); },
+        u32(offset) { return view.getUint32(offset, little); }
+      };
+    }
+
+    function tiffTypeSize(type) {
+      return ({ 1: 1, 2: 1, 3: 2, 4: 4, 5: 8 })[type] || 0;
+    }
+
+    function readTiffValues(view, read, entryOffset) {
+      const type = read.u16(entryOffset + 2);
+      const count = read.u32(entryOffset + 4);
+      const size = tiffTypeSize(type);
+      const valueOffset = size * count <= 4 ? entryOffset + 8 : read.u32(entryOffset + 8);
+      const values = [];
+      for (let i = 0; i < count; i++) {
+        const p = valueOffset + i * size;
+        if (type === 1 || type === 2) values.push(view.getUint8(p));
+        else if (type === 3) values.push(read.u16(p));
+        else if (type === 4) values.push(read.u32(p));
+        else if (type === 5) values.push(read.u32(p) / Math.max(1, read.u32(p + 4)));
+      }
+      return values;
+    }
+
+    function normalizeTiffSample(value, bits) {
+      if (bits === 8) return value;
+      if (bits === 16) return Math.round(value / 257);
+      return Math.round(value * 255 / ((1 << bits) - 1));
+    }
+
+    async function loadTiffImage(file) {
+      const buffer = await file.arrayBuffer();
+      const view = new DataView(buffer);
+      const endian = String.fromCharCode(view.getUint8(0), view.getUint8(1));
+      const little = endian === "II";
+      if (!little && endian !== "MM") throw new Error("Unsupported TIFF endian");
+      const read = tiffReader(view, little);
+      if (read.u16(2) !== 42) throw new Error("Not classic TIFF");
+      const ifdOffset = read.u32(4);
+      const count = read.u16(ifdOffset);
+      const tags = new Map();
+      for (let i = 0; i < count; i++) {
+        const entry = ifdOffset + 2 + i * 12;
+        tags.set(read.u16(entry), readTiffValues(view, read, entry));
+      }
+
+      const width = tags.get(256)?.[0];
+      const height = tags.get(257)?.[0];
+      const bits = tags.get(258) || [8];
+      const compression = tags.get(259)?.[0] || 1;
+      const photometric = tags.get(262)?.[0] ?? 1;
+      const stripOffsets = tags.get(273) || [];
+      const samples = tags.get(277)?.[0] || bits.length || 1;
+      const rowsPerStrip = tags.get(278)?.[0] || height;
+      const stripByteCounts = tags.get(279) || [];
+      const planar = tags.get(284)?.[0] || 1;
+
+      if (!width || !height || compression !== 1 || planar !== 1) throw new Error("Unsupported TIFF compression");
+      if (![1, 3, 4].includes(samples)) throw new Error("Unsupported TIFF samples");
+      if (!bits.every(bit => bit === 8 || bit === 16)) throw new Error("Unsupported TIFF bit depth");
+      if (!stripOffsets.length) throw new Error("Missing TIFF strips");
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      const imageData = ctx.createImageData(width, height);
+      const out = imageData.data;
+      const bytesPerSample = bits[0] / 8;
+      const rowBytes = width * samples * bytesPerSample;
+      let yBase = 0;
+
+      for (let s = 0; s < stripOffsets.length; s++) {
+        const start = stripOffsets[s];
+        const byteCount = stripByteCounts[s] || rowBytes * rowsPerStrip;
+        const rows = Math.min(rowsPerStrip, height - yBase, Math.floor(byteCount / rowBytes));
+        for (let y = 0; y < rows; y++) {
+          for (let x = 0; x < width; x++) {
+            const src = start + y * rowBytes + x * samples * bytesPerSample;
+            const dst = ((yBase + y) * width + x) * 4;
+            if (samples === 1) {
+              const raw = bytesPerSample === 1 ? view.getUint8(src) : view.getUint16(src, little);
+              let v = normalizeTiffSample(raw, bits[0]);
+              if (photometric === 0) v = 255 - v;
+              out[dst] = v; out[dst + 1] = v; out[dst + 2] = v; out[dst + 3] = 255;
+            } else {
+              const vals = [];
+              for (let c = 0; c < samples; c++) {
+                const bit = bits[c] || bits[0];
+                const p = src + c * bytesPerSample;
+                const raw = bytesPerSample === 1 ? view.getUint8(p) : view.getUint16(p, little);
+                vals.push(normalizeTiffSample(raw, bit));
+              }
+              out[dst] = vals[0]; out[dst + 1] = vals[1]; out[dst + 2] = vals[2]; out[dst + 3] = samples === 4 ? vals[3] : 255;
+            }
+          }
+        }
+        yBase += rows;
+      }
+      ctx.putImageData(imageData, 0, 0);
+      return { dataUrl: canvas.toDataURL("image/png"), type: "image/png", width, height };
+    }
+
+    async function handleImage(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      setStatus(els.imageStatus, t("imageLoading"));
+      try {
+        const loaded = isTiffFile(file) ? await loadTiffImage(file) : await loadBrowserImage(file);
+        state.originalDataUrl = loaded.dataUrl;
+        state.originalType = loaded.type;
+        state.originalWidth = loaded.width;
+        state.originalHeight = loaded.height;
+        state.imageDataUrl = loaded.dataUrl;
+        state.imageType = loaded.type;
+        state.imageName = file.name;
+        state.naturalWidth = loaded.width;
+        state.naturalHeight = loaded.height;
+        ["cropLeft", "cropRight", "cropTop", "cropBottom"].forEach(id => els[id].value = 0);
+        syncFromInputs();
+        updateImageStatus();
+        renderPreview();
+      } catch (err) {
+        state.originalDataUrl = "";
+        state.originalType = "";
+        state.originalWidth = 0;
+        state.originalHeight = 0;
+        state.imageDataUrl = "";
+        state.imageType = "";
+        state.imageName = "";
+        state.naturalWidth = 0;
+        state.naturalHeight = 0;
+        setStatus(els.imageStatus, isTiffFile(file) ? t("imageTiffUnsupported") : t("imageUnsupported"), true);
+        renderPreview();
+      } finally {
+        event.target.value = "";
+      }
+    }
+
+    bindEvents();
+    generateLanes(8);
+    state.markers = [defaultMarker(0), defaultMarker(1), defaultMarker(2), defaultMarker(3), defaultMarker(4)];
+    updateTexts();
+  </script>
+</body>
+</html>
