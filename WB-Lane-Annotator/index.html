@@ -65,11 +65,6 @@
       background: #fff;
     }
 
-    input[type="color"] {
-      min-height: 34px;
-      padding: 3px;
-    }
-
     input[type="range"] {
       padding: 0;
       accent-color: var(--accent);
@@ -267,6 +262,42 @@
       height: 16px;
       accent-color: var(--accent);
       padding: 0;
+    }
+
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 22px);
+      gap: 6px;
+      align-items: center;
+    }
+
+    .color-swatch {
+      width: 22px;
+      height: 22px;
+      min-height: 22px;
+      padding: 0;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 1px var(--line);
+      cursor: pointer;
+    }
+
+    .color-swatch.active {
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+
+    .color-input-row {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .color-preview {
+      width: 100%;
+      height: 28px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
     }
 
     .lane-card, .marker-card {
@@ -1015,7 +1046,13 @@
             </div>
             <div class="field">
               <label>${t("color")}</label>
-              <input type="color" value="${lane.color}" data-action="lane-color" data-id="${lane.id}">
+              <div class="color-grid">
+                ${palettes.map(color => `<button type="button" class="color-swatch${color.toLowerCase() === String(lane.color).toLowerCase() ? " active" : ""}" style="background:${color}" title="${color}" data-action="lane-swatch" data-id="${lane.id}" data-color="${color}"></button>`).join("")}
+              </div>
+              <div class="color-input-row">
+                <input value="${escapeAttr(lane.color)}" maxlength="7" data-action="lane-color" data-id="${lane.id}" aria-label="${t("color")} HEX">
+                <div class="color-preview" style="background:${validHex(lane.color) ? lane.color : "#111827"}"></div>
+              </div>
             </div>
           </div>
           <div class="row">
@@ -1123,6 +1160,17 @@
 
     function escapeAttr(value) {
       return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+    }
+
+    function normalizeHex(value) {
+      const raw = String(value || "").trim();
+      if (/^#[0-9a-f]{6}$/i.test(raw)) return raw;
+      if (/^[0-9a-f]{6}$/i.test(raw)) return `#${raw}`;
+      return "";
+    }
+
+    function validHex(value) {
+      return Boolean(normalizeHex(value));
     }
 
     function escapeHtml(value) {
@@ -1642,12 +1690,27 @@
         const lane = state.lanes.find(item => item.id === id);
         if (!lane) return;
         if (e.target.dataset.action === "lane-name") lane.name = e.target.value;
-        if (e.target.dataset.action === "lane-color") lane.color = e.target.value;
+        if (e.target.dataset.action === "lane-color") {
+          const color = normalizeHex(e.target.value);
+          if (!color) return;
+          lane.color = color;
+          const preview = e.target.nextElementSibling;
+          if (preview) preview.style.background = color;
+        }
         if (e.target.dataset.action === "lane-x") lane.x = Number(e.target.value);
         if (e.target.dataset.action === "lane-y") lane.y = Number(e.target.value);
         renderPreview();
       });
       els.lanesList.addEventListener("click", e => {
+        if (e.target.dataset.action === "lane-swatch") {
+          const lane = state.lanes.find(item => item.id === e.target.dataset.id);
+          const color = normalizeHex(e.target.dataset.color);
+          if (!lane || !color) return;
+          lane.color = color;
+          renderControls();
+          renderPreview();
+          return;
+        }
         if (e.target.dataset.action !== "remove-lane") return;
         state.lanes = state.lanes.filter(item => item.id !== e.target.dataset.id);
         renderControls();
